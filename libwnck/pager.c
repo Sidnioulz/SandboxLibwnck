@@ -28,8 +28,10 @@
 
 #include <config.h>
 
+#include <stdlib.h>
 #include <math.h>
 #include <glib/gi18n-lib.h>
+#include <libxfce4ui/libxfce4ui.h>
 
 #include "pager.h"
 #include "workspace.h"
@@ -853,8 +855,10 @@ draw_window (GdkDrawable        *drawable,
   GdkPixbuf *icon;
   int icon_x, icon_y, icon_w, icon_h;
   gboolean is_active;
-  GdkColor *color;
+  GdkColor color;
+  GdkColor *colorptr;
   gdouble translucency;
+  gchar *sandbox_type = _wnck_get_sandbox_type (wnck_window_get_xid (win));
 
   style = gtk_widget_get_style (widget);
 
@@ -865,14 +869,25 @@ draw_window (GdkDrawable        *drawable,
   cairo_rectangle (cr, winrect->x, winrect->y, winrect->width, winrect->height);
   cairo_clip (cr);
 
-  if (is_active)
-    color = &style->light[state];
+  if (sandbox_type)
+    {
+      if (g_strcmp0 (sandbox_type, "protected") == 0)
+        gdk_color_parse (is_active? "#3c6b3c":"#2b3a2b", &color);
+      else
+        gdk_color_parse (is_active? "#d64937":"#791818", &color);
+      colorptr = &color;
+    }
   else
-    color = &style->bg[state];
+    {
+      if (is_active)
+        colorptr = &style->light[state];
+      else
+        colorptr = &style->bg[state];
+    }
   cairo_set_source_rgba (cr,
-                         color->red / 65535.,
-                         color->green / 65535.,
-                         color->blue / 65535.,
+                         colorptr->red / 65535.,
+                         colorptr->green / 65535.,
+                         colorptr->blue / 65535.,
                          translucency);
   cairo_rectangle (cr,
                    winrect->x + 1, winrect->y + 1,
@@ -882,9 +897,9 @@ draw_window (GdkDrawable        *drawable,
   icon = wnck_window_get_icon (win);
 
   icon_w = icon_h = 0;
-          
+
   if (icon)
-    {              
+    {
       icon_w = gdk_pixbuf_get_width (icon);
       icon_h = gdk_pixbuf_get_height (icon);
 
@@ -913,7 +928,7 @@ draw_window (GdkDrawable        *drawable,
     {
       icon_x = winrect->x + (winrect->width - icon_w) / 2;
       icon_y = winrect->y + (winrect->height - icon_h) / 2;
-                
+
       cairo_save (cr);
       gdk_cairo_set_source_pixbuf (cr, icon, icon_x, icon_y);
       cairo_rectangle (cr, icon_x, icon_y, icon_w, icon_h);
@@ -921,15 +936,16 @@ draw_window (GdkDrawable        *drawable,
       cairo_paint_with_alpha (cr, translucency);
       cairo_restore (cr);
     }
-          
+
   if (is_active)
-    color = &style->fg[state];
+    colorptr = &style->fg[state];
   else
-    color = &style->fg[state];
+    colorptr = &style->fg[state];
+
   cairo_set_source_rgba (cr,
-                         color->red / 65535.,
-                         color->green / 65535.,
-                         color->blue / 65535.,
+                         colorptr->red / 65535.,
+                         colorptr->green / 65535.,
+                         colorptr->blue / 65535.,
                          translucency);
   cairo_set_line_width (cr, 1.0);
   cairo_rectangle (cr,
@@ -938,7 +954,8 @@ draw_window (GdkDrawable        *drawable,
   cairo_stroke (cr);
 
   cairo_destroy (cr);
-}            
+  g_free (sandbox_type);
+}
 
 static WnckWindow *
 window_at_point (WnckPager     *pager,
@@ -1101,6 +1118,17 @@ wnck_pager_draw_workspace (WnckPager    *pager,
   GtkStateType state;
   GdkWindow *window;
   GtkStyle *style;
+  GdkColor colsecure;
+  GdkColor colsecurecurrent;
+  gint secure;
+
+  secure = xfce_workspace_is_secure (workspace);
+  if (secure)
+    {
+      /* bravely assuming these two calls will work... */
+      gdk_color_parse("#791818", &colsecure);
+      gdk_color_parse("#d64937", &colsecurecurrent);
+    }
   
   space = wnck_screen_get_workspace (pager->priv->screen, workspace);
   if (!space)
@@ -1121,7 +1149,7 @@ wnck_pager_draw_workspace (WnckPager    *pager,
 
   /* FIXME in names mode, should probably draw things like a button.
    */
-  
+
   if (bg_pixbuf)
     {
       gdk_draw_pixbuf (window,
@@ -1141,7 +1169,12 @@ wnck_pager_draw_workspace (WnckPager    *pager,
 
       if (!wnck_workspace_is_virtual (space))
         {
-          gdk_cairo_set_source_color (cr, &style->dark[state]);
+          if (secure)
+            {
+              gdk_cairo_set_source_color (cr, state == GTK_STATE_PRELIGHT? &colsecure : state == GTK_STATE_SELECTED? &colsecurecurrent : &style->dark[state]);
+            }
+          else
+            gdk_cairo_set_source_color (cr, &style->dark[state]);
           cairo_rectangle (cr, rect->x, rect->y, rect->width, rect->height);
           cairo_fill (cr);
         }
@@ -1209,11 +1242,9 @@ wnck_pager_draw_workspace (WnckPager    *pager,
                         vh = rect->height + rect->y - vy;
 
                       if (active_i == i && active_j == j)
-                        gdk_cairo_set_source_color (cr,
-                                                    &style->dark[GTK_STATE_SELECTED]);
+                        gdk_cairo_set_source_color (cr, secure? &colsecurecurrent : &style->dark[GTK_STATE_SELECTED]);
                       else
-                        gdk_cairo_set_source_color (cr,
-                                                    &style->dark[GTK_STATE_NORMAL]);
+                        gdk_cairo_set_source_color (cr, secure && state == GTK_STATE_PRELIGHT? &colsecure : &style->dark[GTK_STATE_NORMAL]);
                       cairo_rectangle (cr, vx, vy, vw, vh);
                       cairo_fill (cr);
                     }
@@ -1224,8 +1255,10 @@ wnck_pager_draw_workspace (WnckPager    *pager,
               width_ratio = rect->width / (double) workspace_width;
               height_ratio = rect->height / (double) workspace_height;
 
+              /* set the color depending on whether the workspace is sandboxed */
+              gdk_cairo_set_source_color (cr, secure? &colsecure : &style->dark[GTK_STATE_NORMAL]);
+
               /* first draw non-active part of the viewport */
-              gdk_cairo_set_source_color (cr, &style->dark[GTK_STATE_NORMAL]);
               cairo_rectangle (cr, rect->x, rect->y, rect->width, rect->height);
               cairo_fill (cr);
 
@@ -1239,7 +1272,7 @@ wnck_pager_draw_workspace (WnckPager    *pager,
                   vw = width_ratio * screen_width;
                   vh = height_ratio * screen_height;
 
-                  gdk_cairo_set_source_color (cr, &style->dark[GTK_STATE_SELECTED]);
+                  gdk_cairo_set_source_color (cr, secure? &colactive : &style->dark[GTK_STATE_SELECTED]);
                   cairo_rectangle (cr, vx, vy, vw, vh);
                   cairo_fill (cr);
                 }
@@ -1943,10 +1976,6 @@ static gboolean
 wnck_pager_focus (GtkWidget        *widget,
                   GtkDirectionType  direction)
 {
-  WnckPager *pager;
-
-  pager = WNCK_PAGER (widget);
-  
   return GTK_WIDGET_CLASS (wnck_pager_parent_class)->focus (widget, direction);
 }
 

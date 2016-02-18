@@ -79,12 +79,14 @@ $(libwnck_1_la_OBJECTS): $(wnck_built_headers)
 libwnck_1_la_CPPFLAGS =			\
 	$(AM_CPPFLAGS)			\
 	$(XLIB_CFLAGS)			\
+	$(LIBXFCE4UI_CFLAGS)			\
 	-DG_LOG_DOMAIN=\"Wnck\"		\
 	-DSN_API_NOT_YET_FROZEN=1
 
 libwnck_1_la_LIBADD =	\
 	$(LIBWNCK_LIBS)	\
 	$(XLIB_LIBS)	\
+	$(LIBXFCE4UI_LIBS)	\
 	$(LIBM)
 
 libwnck_1_la_LDFLAGS =								\

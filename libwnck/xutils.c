@@ -1185,6 +1185,28 @@ _wnck_get_icon_name (Window xwindow)
   return name;
 }
 
+char*
+_wnck_get_sandbox_type (Window xwindow)
+{
+  char *type;
+  
+  type = _wnck_get_string_property_latin1 (xwindow,
+                                  _wnck_atom_get ("FIREJAIL_SANDBOX_TYPE"));
+
+  return type;
+}
+
+char*
+_wnck_get_sandbox_name (Window xwindow)
+{
+  char *name;
+  
+  name = _wnck_get_string_property_latin1 (xwindow,
+                                  _wnck_atom_get ("FIREJAIL_SANDBOX_NAME"));
+
+  return name;
+}
+
 static char*
 latin1_to_utf8 (const char *latin1)
 {
