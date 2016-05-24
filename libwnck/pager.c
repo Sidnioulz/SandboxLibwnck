@@ -1272,7 +1272,7 @@ wnck_pager_draw_workspace (WnckPager    *pager,
                   vw = width_ratio * screen_width;
                   vh = height_ratio * screen_height;
 
-                  gdk_cairo_set_source_color (cr, secure? &colactive : &style->dark[GTK_STATE_SELECTED]);
+                  gdk_cairo_set_source_color (cr, secure? &colsecure : &style->dark[GTK_STATE_SELECTED]);
                   cairo_rectangle (cr, vx, vy, vw, vh);
                   cairo_fill (cr);
                 }
